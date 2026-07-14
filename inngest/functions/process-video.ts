@@ -2,11 +2,6 @@ import { inngest } from '@/lib/inngest'
 import { createClient } from '@supabase/supabase-js'
 import type { Video } from '@/lib/supabase/types'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // use service role for background jobs
-)
-
 export const processVideo = inngest.createFunction(
   { 
     id: 'process-video', 
@@ -18,6 +13,10 @@ export const processVideo = inngest.createFunction(
 
     // Step 1: Mark as processing
     await step.run('mark-processing', async () => {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
       const { error } = await supabase
         .from('videos')
         .update({ status: 'processing' })
@@ -55,6 +54,10 @@ export const processVideo = inngest.createFunction(
 
     // Step 4: Mark as done + save output
     await step.run('finalize', async () => {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
       const { error } = await supabase
         .from('videos')
         .update({
