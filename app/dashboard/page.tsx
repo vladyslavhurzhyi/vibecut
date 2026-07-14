@@ -13,7 +13,7 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const router = useRouter()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
 
   const fetchVideos = async (uid: string) => {
     const { data, error } = await supabase
