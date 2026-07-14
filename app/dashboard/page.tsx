@@ -6,6 +6,8 @@ import type { Video } from '@/lib/supabase/types'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export default function Dashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -13,7 +15,9 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const router = useRouter()
-  const [supabase] = useState(() => createClient())
+
+  // Lazy Supabase client (только на клиенте)
+  const supabase = createClient()
 
   const fetchVideos = async (uid: string) => {
     const { data, error } = await supabase

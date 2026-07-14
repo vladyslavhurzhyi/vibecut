@@ -2,6 +2,9 @@ import { inngest } from '@/lib/inngest'
 import { createClient } from '@supabase/supabase-js'
 import type { Video } from '@/lib/supabase/types'
 
+// ВАЖНО: Supabase клиент создаётся ТОЛЬКО внутри step.run
+// чтобы не падал билд на Vercel
+
 export const processVideo = inngest.createFunction(
   { 
     id: 'process-video', 
