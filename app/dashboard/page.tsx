@@ -27,19 +27,30 @@ export default function Dashboard() {
     }
   }
 
+  // Realtime subscription
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-      } else {
-        setUserEmail(user.email ?? null)
-        setUserId(user.id)
-        await fetchVideos(user.id)
-      }
+    if (!userId) return
+
+    const channel = supabase
+      .channel('videos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'videos',
+          filter: `user_id=eq.${userId}`
+        },
+        () => {
+          fetchVideos(userId)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-    getUser()
-  }, [supabase, router])
+  }, [userId, supabase])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
