@@ -1,5 +1,11 @@
-// @ts-nocheck
 import { inngest } from '@/lib/inngest'
+import { createClient } from '@supabase/supabase-js'
+import type { Video } from '@/lib/supabase/types'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // use service role for background jobs
+)
 
 export const processVideo = inngest.createFunction(
   { 
@@ -8,26 +14,68 @@ export const processVideo = inngest.createFunction(
     triggers: [{ event: 'video/uploaded' }]
   },
   async ({ event, step }) => {
-    const { videoPath, userId } = event.data
+    const { videoId, storagePath, userId, originalName } = event.data
 
-    await step.run('validate-video', async () => {
-      console.log(`Validating video ${videoPath} for user ${userId}`)
-      return { valid: true, duration: 120 }
+    // Step 1: Mark as processing
+    await step.run('mark-processing', async () => {
+      const { error } = await supabase
+        .from('videos')
+        .update({ status: 'processing' })
+        .eq('id', videoId)
+        .eq('user_id', userId)
+      
+      if (error) throw error
+      console.log(`[process-video] Video ${videoId} marked as processing`)
+      return { success: true }
     })
 
-    const analysis = await step.run('analyze-video', async () => {
+    // Step 2: Validate + get metadata (placeholder for real ffprobe)
+    const metadata = await step.run('validate-and-analyze', async () => {
+      console.log(`Validating ${storagePath}...`)
+      // TODO: real ffprobe / AI analysis here
       return {
-        scenes: 8,
-        highlights: ['00:15', '01:42'],
-        suggestedCuts: 3,
+        duration: 187,
+        scenes: 12,
+        highlights: ['00:23', '01:05', '02:41'],
+        suggestedCuts: 5
       }
     })
 
-    await step.run('generate-output', async () => {
-      console.log('Generating final video with cuts...')
-      return { outputPath: `processed/${userId}/${Date.now()}.mp4` }
+    // Step 3: Generate output (placeholder - later real FFmpeg or AI render)
+    const result = await step.run('generate-montage', async () => {
+      console.log('Generating AI montage...')
+      // In real version: download from storage, run ffmpeg, upload result
+      const outputPath = `processed/${userId}/${Date.now()}-vibecut.mp4`
+      
+      return {
+        outputPath,
+        success: true
+      }
     })
 
-    return { success: true, analysis }
+    // Step 4: Mark as done + save output
+    await step.run('finalize', async () => {
+      const { error } = await supabase
+        .from('videos')
+        .update({
+          status: 'done',
+          output_path: result.outputPath,
+          processed_at: new Date().toISOString(),
+          duration_seconds: metadata.duration
+        })
+        .eq('id', videoId)
+        .eq('user_id', userId)
+      
+      if (error) throw error
+      console.log(`[process-video] Video ${videoId} completed`)
+      return { success: true }
+    })
+
+    return { 
+      success: true, 
+      videoId,
+      analysis: metadata,
+      outputPath: result.outputPath 
+    }
   }
 )

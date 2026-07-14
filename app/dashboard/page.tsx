@@ -2,16 +2,30 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { uploadVideo } from '@/lib/supabase/storage'
+import type { Video } from '@/lib/supabase/types'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 export default function Dashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [videos, setVideos] = useState<Video[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const router = useRouter()
   const supabase = createClient()
+
+  const fetchVideos = async (uid: string) => {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setVideos(data as Video[])
+    }
+  }
 
   useEffect(() => {
     const getUser = async () => {
@@ -21,6 +35,7 @@ export default function Dashboard() {
       } else {
         setUserEmail(user.email ?? null)
         setUserId(user.id)
+        await fetchVideos(user.id)
       }
     }
     getUser()
@@ -35,12 +50,12 @@ export default function Dashboard() {
 
     try {
       const result = await uploadVideo(file, userId)
-      setUploadStatus(`✅ Uploaded! Pipeline triggered. Path: ${result.path}`)
+      setUploadStatus(`✅ Uploaded! Pipeline triggered. ID: ${result.id}`)
+      await fetchVideos(userId)
     } catch (error: any) {
       setUploadStatus(`❌ Error: ${error.message}`)
     } finally {
       setUploading(false)
-      // Reset input
       e.target.value = ''
     }
   }
@@ -86,8 +101,45 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="text-xs text-zinc-500">
-          After upload the Inngest pipeline (validate → analyze → generate) will run automatically.
+        {/* Videos List */}
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">Your Videos</h2>
+          
+          {videos.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-400">
+              No videos yet. Upload your first clip above.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {videos.map((video) => (
+                <div key={video.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{video.original_name || video.storage_path.split('/').pop()}</div>
+                    <div className="text-xs text-zinc-500 mt-0.5">
+                      {new Date(video.created_at).toLocaleString()} • {video.duration_seconds ? `${Math.floor(video.duration_seconds / 60)}m ${video.duration_seconds % 60}s` : '—'}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 text-xs rounded-full font-medium ${
+                      video.status === 'done' ? 'bg-emerald-500/10 text-emerald-400' :
+                      video.status === 'processing' ? 'bg-blue-500/10 text-blue-400' :
+                      video.status === 'error' ? 'bg-red-500/10 text-red-400' :
+                      'bg-zinc-700 text-zinc-400'
+                    }`}>
+                      {video.status}
+                    </span>
+                    
+                    {video.output_path && (
+                      <button className="text-sm px-4 py-1.5 rounded-md bg-white text-black hover:bg-zinc-200 transition">
+                        Download
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

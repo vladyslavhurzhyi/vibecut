@@ -13,5 +13,8 @@ export type Video = {
   original_name: string | null
   status: 'uploaded' | 'processing' | 'done' | 'error'
   duration_seconds: number | null
+  output_path: string | null
+  processed_at: string | null
+  error_message: string | null
   created_at: string
 }

@@ -38,7 +38,7 @@ export async function uploadVideo(file: File, userId: string, projectId?: string
     name: 'video/uploaded',
     data: {
       videoId: videoData.id,
-      videoPath: storageData.path,
+      storagePath: storageData.path,
       userId,
       originalName: file.name,
     },
